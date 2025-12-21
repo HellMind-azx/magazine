@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Search, User, Heart, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import Cart from './Cart';
@@ -8,105 +8,16 @@ import Profile from './Profile';
 import styles from './Header.module.scss';
 import { usePathname } from 'next/navigation';
 
-// Моковые данные товаров
-const mockProducts = [
-  {
-    id: 1,
-    name: 'Беспроводные наушники',
-    price: 89.99,
-    category: 'Электроника',
-    image: '🎧',
-    rating: 4.5,
-    description: 'Премиальные беспроводные наушники с активным шумоподавлением и превосходным качеством звука. Идеальны для музыки, звонков и работы.',
-    features: ['Bluetooth 5.0', 'До 30 часов работы', 'Быстрая зарядка', 'Складная конструкция'],
-    inStock: true
-  },
-  {
-    id: 2,
-    name: 'Смарт-часы',
-    price: 199.99,
-    category: 'Электроника',
-    image: '⌚',
-    rating: 4.8,
-    description: 'Многофункциональные смарт-часы с мониторингом здоровья, GPS и влагозащитой. Следите за активностью и получайте уведомления.',
-    features: ['Пульсометр', 'Водонепроницаемые', 'GPS навигация', '7 дней автономности'],
-    inStock: true
-  },
-  {
-    id: 3,
-    name: 'Кожаный рюкзак',
-    price: 129.99,
-    category: 'Аксессуары',
-    image: '🎒',
-    rating: 4.3,
-    description: 'Стильный рюкзак из натуральной кожи с множеством отделений. Подходит для работы, учебы и путешествий.',
-    features: ['Натуральная кожа', 'Отделение для ноутбука', 'USB порт', 'Водоотталкивающее покрытие'],
-    inStock: true
-  },
-  {
-    id: 4,
-    name: 'Спортивные кроссовки',
-    price: 149.99,
-    category: 'Обувь',
-    image: '👟',
-    rating: 4.7,
-    description: 'Профессиональные беговые кроссовки с амортизацией и дышащим материалом. Максимальный комфорт при любых нагрузках.',
-    features: ['Дышащая сетка', 'Амортизация Air', 'Легкий вес', 'Противоскользящая подошва'],
-    inStock: true
-  },
-  {
-    id: 5,
-    name: 'Солнцезащитные очки',
-    price: 79.99,
-    category: 'Аксессуары',
-    image: '🕶️',
-    rating: 4.2,
-    description: 'Модные солнцезащитные очки с поляризационными линзами и UV защитой. Стиль и защита для ваших глаз.',
-    features: ['UV400 защита', 'Поляризация', 'Легкая оправа', 'Прочный футляр в комплекте'],
-    inStock: false
-  },
-  {
-    id: 6,
-    name: 'Портативная колонка',
-    price: 59.99,
-    category: 'Электроника',
-    image: '🔊',
-    rating: 4.6,
-    description: 'Компактная беспроводная колонка с мощным звуком и защитой от воды. Отличный выбор для пикников и вечеринок.',
-    features: ['360° звук', 'Водонепроницаемая', '12 часов работы', 'Bluetooth и AUX'],
-    inStock: true
-  },
-  {
-    id: 7,
-    name: 'Фитнес-браслет',
-    price: 49.99,
-    category: 'Электроника',
-    image: '📱',
-    rating: 4.4,
-    description: 'Удобный фитнес-трекер для отслеживания активности, сна и калорий. Мотивация к здоровому образу жизни на вашем запястье.',
-    features: ['Счетчик шагов', 'Мониторинг сна', 'Уведомления', 'Сменные ремешки'],
-    inStock: true
-  },
-  {
-    id: 8,
-    name: 'Дизайнерская футболка',
-    price: 39.99,
-    category: 'Одежда',
-    image: '👕',
-    rating: 4.1,
-    description: 'Стильная футболка из премиум хлопка с уникальным принтом. Комфорт и стиль на каждый день.',
-    features: ['100% хлопок', 'Дизайнерский принт', 'Не выцветает', 'Удобная посадка'],
-    inStock: true
-  },
-];
 
-const categories = ['Все', 'Электроника', 'Аксессуары', 'Обувь', 'Одежда'];
+const API_URL = 'http://localhost:8000/api/products/';
 
 export default function MiniShop() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [cart, setCart] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Все');
   const [priceRange, setPriceRange] = useState([0, 300]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -122,12 +33,46 @@ export default function MiniShop() {
   ]
   
   const isActive = (href) => pathname === href;
+
+  // Загрузка продуктов с API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch(API_URL);
+        if (!response.ok) {
+          throw new Error('Ошибка при загрузке продуктов');
+        }
+        const data = await response.json();
+        setProducts(data);
+        
+        // Устанавливаем максимальную цену для фильтра после загрузки
+        if (data.length > 0) {
+          const maxPrice = Math.max(...data.map(p => parseFloat(p.price)));
+          setPriceRange([0, Math.ceil(maxPrice / 100) * 100]); // Округляем до сотен
+        }
+      } catch (err) {
+        setError(err.message);
+        console.error('Ошибка загрузки продуктов:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  // Вычисляем максимальную цену для фильтра
+  const maxPrice = products.length > 0 
+    ? Math.max(...products.map(p => parseFloat(p.price)))
+    : 1000;
+
   // Фильтрация товаров
-  const filteredProducts = mockProducts.filter(product => {
+  const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'Все' || product.category === selectedCategory;
-    const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
-    return matchesSearch && matchesCategory && matchesPrice;
+    const matchesPrice = parseFloat(product.price) >= priceRange[0] && parseFloat(product.price) <= priceRange[1];
+    return matchesSearch && matchesPrice;
   });
 
   const addToCart = (product, qty = 1) => {
@@ -252,42 +197,22 @@ export default function MiniShop() {
 
         {/* Содержимое меню */}
         <div className={styles.sidebarContent}>
-          {/* Категории */}
-          <div>
-            <h4 className={styles.sectionTitle}>Категории</h4>
-            <div className={styles.categoriesList}>
-              {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => {
-                    setSelectedCategory(cat);
-                    setIsMenuOpen(false);
-                  }}
-                  className={`${styles.categoryButton} ${selectedCategory === cat ? styles.categoryButtonActive : ''}`}
-                >
-                  <span>{cat}</span>
-                  {selectedCategory === cat && <span>✓</span>}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Диапазон цен */}
           <div>
             <h4 className={styles.sectionTitle}>Диапазон цен</h4>
             <div className={styles.priceRangeContainer}>
-              <span>${priceRange[0]}</span>
-              <span>${priceRange[1]}</span>
+              <span>{priceRange[0]} $</span>
+              <span>{priceRange[1]} $</span>
             </div>
             <input
               type="range"
               min="0"
-              max="300"
+              max={maxPrice || 1000}
               value={priceRange[1]}
               onChange={(e) => setPriceRange([0, parseInt(e.target.value)])}
               className={styles.priceRangeSlider}
               style={{
-                background: `linear-gradient(to right, #667eea 0%, #667eea ${(priceRange[1] / 300) * 100}%, #e0e0e0 ${(priceRange[1] / 300) * 100}%, #e0e0e0 100%)`
+                background: `linear-gradient(to right, #667eea 0%, #667eea ${(priceRange[1] / (maxPrice || 1000)) * 100}%, #e0e0e0 ${(priceRange[1] / (maxPrice || 1000)) * 100}%, #e0e0e0 100%)`
               }}
             />
           </div>
@@ -306,16 +231,39 @@ export default function MiniShop() {
       <div className={styles.mainContent}>
         <div className={styles.contentHeader}>
           <h2 className={styles.contentTitle}>
-            {selectedCategory === 'Все' ? 'Все товары' : selectedCategory}
+            Все товары
           </h2>
           <span className={styles.productsCount}>
             {filteredProducts.length} товаров
           </span>
         </div>
 
+        {/* Состояние загрузки */}
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <p>Загрузка товаров...</p>
+          </div>
+        )}
+
+        {/* Состояние ошибки */}
+        {error && !loading && (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#ff4757' }}>
+            <p>Ошибка: {error}</p>
+            <p style={{ fontSize: '14px', marginTop: '10px', color: '#666' }}>
+              Убедитесь, что backend запущен на http://localhost:8000
+            </p>
+          </div>
+        )}
+
         {/* Сетка товаров */}
-        <div className={styles.productsGrid}>
-          {filteredProducts.map(product => (
+        {!loading && !error && (
+          <div className={styles.productsGrid}>
+            {filteredProducts.length === 0 ? (
+              <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px' }}>
+                <p>Товары не найдены</p>
+              </div>
+            ) : (
+              filteredProducts.map(product => (
             <div
               key={product.id}
               onClick={() => setSelectedProduct(product)}
@@ -323,7 +271,11 @@ export default function MiniShop() {
             >
               {/* Изображение товара */}
               <div className={styles.productImage}>
-                {product.image}
+                {product.image_url ? (
+                  <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '48px' }}>📦</div>
+                )}
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
@@ -338,20 +290,15 @@ export default function MiniShop() {
               {/* Информация о товаре */}
               <div className={styles.productInfo}>
                 <div className={styles.productCategory}>
-                  {product.category}
+                  Товар
                 </div>
                 <h3 className={styles.productName}>
                   {product.name}
                 </h3>
 
-                <div className={styles.productRating}>
-                  <span className={styles.ratingStar}>★</span>
-                  <span className={styles.ratingValue}>{product.rating}</span>
-                </div>
-
                 <div className={styles.productFooter}>
                   <span className={styles.productPrice}>
-                    ${product.price}
+                    {parseFloat(product.price).toFixed(2)} $
                   </span>
                   <button
                     onClick={(e) => {
@@ -359,14 +306,17 @@ export default function MiniShop() {
                       addToCart(product);
                     }}
                     className={styles.addToCartButton}
+                    disabled={product.stock <= 0}
                   >
-                    В корзину
+                    {product.stock > 0 ? 'В корзину' : 'Нет в наличии'}
                   </button>
                 </div>
               </div>
             </div>
-          ))}
+          ))
+        )}
         </div>
+        )}
       </div>
 
       {/* Модальное окно карточки товара */}
@@ -401,19 +351,11 @@ export default function MiniShop() {
               {/* Левая часть - изображение */}
               <div>
                 <div className={styles.modalImageContainer}>
-                  {selectedProduct.image}
-                </div>
-
-                {/* Миниатюры (для демонстрации) */}
-                <div className={styles.modalThumbnails}>
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className={`${styles.modalThumbnail} ${i === 1 ? styles.modalThumbnailActive : ''}`}
-                    >
-                      {selectedProduct.image}
-                    </div>
-                  ))}
+                  {selectedProduct.image_url ? (
+                    <img src={selectedProduct.image_url} alt={selectedProduct.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '120px' }}>📦</div>
+                  )}
                 </div>
               </div>
 
@@ -421,7 +363,7 @@ export default function MiniShop() {
               <div className={styles.modalInfo}>
                 {/* Категория */}
                 <div className={styles.modalCategory}>
-                  {selectedProduct.category}
+                  Товар
                 </div>
 
                 {/* Название */}
@@ -429,65 +371,32 @@ export default function MiniShop() {
                   {selectedProduct.name}
                 </h2>
 
-                {/* Рейтинг */}
-                <div className={styles.modalRating}>
-                  <div className={styles.modalStars}>
-                    {[...Array(5)].map((_, i) => (
-                      <span key={i} className={`${styles.modalStar} ${i < Math.floor(selectedProduct.rating) ? styles.modalStarFilled : styles.modalStarEmpty}`}>
-                        ★
-                      </span>
-                    ))}
-                  </div>
-                  <span className={styles.modalRatingValue}>
-                    {selectedProduct.rating}
-                  </span>
-                  <span className={styles.modalReviews}>
-                    (128 отзывов)
-                  </span>
-                </div>
-
                 {/* Цена */}
                 <div className={styles.modalPrice}>
-                  ${selectedProduct.price}
+                  {parseFloat(selectedProduct.price).toFixed(2)} ₽
                 </div>
 
                 {/* Наличие */}
-                <div className={`${styles.modalStock} ${selectedProduct.inStock ? styles.modalStockInStock : styles.modalStockOutOfStock}`}>
+                <div className={`${styles.modalStock} ${selectedProduct.stock > 0 ? styles.modalStockInStock : styles.modalStockOutOfStock}`}>
                   <span className={styles.modalStockIcon}>
-                    {selectedProduct.inStock ? '✓' : '✗'}
+                    {selectedProduct.stock > 0 ? '✓' : '✗'}
                   </span>
-                  <span className={`${styles.modalStockText} ${selectedProduct.inStock ? styles.modalStockTextInStock : styles.modalStockTextOutOfStock}`}>
-                    {selectedProduct.inStock ? 'В наличии' : 'Нет в наличии'}
+                  <span className={`${styles.modalStockText} ${selectedProduct.stock > 0 ? styles.modalStockTextInStock : styles.modalStockTextOutOfStock}`}>
+                    {selectedProduct.stock > 0 ? `В наличии (${selectedProduct.stock} шт.)` : 'Нет в наличии'}
                   </span>
                 </div>
 
                 {/* Описание */}
-                <div className={styles.modalSection}>
-                  <h3 className={styles.modalSectionTitle}>
-                    Описание
-                  </h3>
-                  <p className={styles.modalDescription}>
-                    {selectedProduct.description}
-                  </p>
-                </div>
-
-                {/* Характеристики */}
-                <div className={styles.modalSection}>
-                  <h3 className={styles.modalSectionTitle}>
-                    Особенности
-                  </h3>
-                  <div className={styles.modalFeatures}>
-                    {selectedProduct.features.map((feature, index) => (
-                      <div
-                        key={index}
-                        className={styles.modalFeature}
-                      >
-                        <span className={styles.modalFeatureIcon}>✓</span>
-                        {feature}
-                      </div>
-                    ))}
+                {selectedProduct.description && (
+                  <div className={styles.modalSection}>
+                    <h3 className={styles.modalSectionTitle}>
+                      Описание
+                    </h3>
+                    <p className={styles.modalDescription}>
+                      {selectedProduct.description}
+                    </p>
                   </div>
-                </div>
+                )}
 
                 {/* Выбор количества */}
                 <div className={styles.modalSection}>
@@ -524,10 +433,10 @@ export default function MiniShop() {
                 <div className={styles.modalActions}>
                   <button
                     onClick={() => addToCart(selectedProduct, quantity)}
-                    disabled={!selectedProduct.inStock}
-                    className={`${styles.modalAddToCartButton} ${selectedProduct.inStock ? styles.modalAddToCartButtonInStock : styles.modalAddToCartButtonOutOfStock}`}
+                    disabled={selectedProduct.stock <= 0}
+                    className={`${styles.modalAddToCartButton} ${selectedProduct.stock > 0 ? styles.modalAddToCartButtonInStock : styles.modalAddToCartButtonOutOfStock}`}
                   >
-                    {selectedProduct.inStock ? 'Добавить в корзину' : 'Товар недоступен'}
+                    {selectedProduct.stock > 0 ? 'Добавить в корзину' : 'Товар недоступен'}
                   </button>
 
                   <button 

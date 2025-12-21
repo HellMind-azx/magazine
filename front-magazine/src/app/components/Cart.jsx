@@ -43,7 +43,7 @@ export default function Cart({ cart, setCart }) {
   };
 
   const getTotalPrice = () => {
-    return cart.reduce((total, item) => total + item.price, 0).toFixed(2);
+    return cart.reduce((total, item) => total + parseFloat(item.price || 0), 0).toFixed(2);
   };
 
   const uniqueProducts = getUniqueProducts();
@@ -68,10 +68,16 @@ export default function Cart({ cart, setCart }) {
           const count = getProductCount(product.id);
           return (
             <div key={product.id} className={styles.productItem}>
-              <div className={styles.productImage}>{product.image}</div>
+              <div className={styles.productImage}>
+                {product.image_url ? (
+                  <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px' }}>📦</div>
+                )}
+              </div>
               <div className={styles.productInfo}>
                 <h3 className={styles.productName}>{product.name}</h3>
-                <p className={styles.productPrice}>${product.price}</p>
+                <p className={styles.productPrice}>${parseFloat(product.price || 0).toFixed(2)}</p>
               </div>
               <div className={styles.quantityControls}>
                 <button 
